@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 contract VolcanoCoin {
-    // Public functions have a getter
+    // Public functions/variables have a getter
     uint256 public totalSupply = 10000;
     address private owner;
 
@@ -18,7 +18,6 @@ contract VolcanoCoin {
     }
 
     mapping(address => Wallet) public wallet;
-
 
     event SupplyIncrease(uint256 totalSupply);
     event TransferOccured(uint256 _amount, address _recipient);
