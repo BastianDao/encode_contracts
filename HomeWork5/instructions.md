@@ -13,8 +13,7 @@ But we want to deploy our contract as an ERC20 token, therefore we need a constr
 7. You should see an error by your modifier function. You can now remove the function altogether. Notice that the changeTokenSupply, which has the onlyOwner keyword is still executable. Also, you no longer need to define an owner address , or have a constructor to set the owner as msg.sender . The Ownable contract handles this logic for you. Remove the
 owner variable and its logic in the constructor.
 8. ERC20 has an internal function _mint . When called, it mints token to the recipient. Create a constructor that calls the _mint function inside the constructor. Mint the 10000 token supply to the owner.
-9. Make a function that can mint more tokens to the owner.
-Adding more functionality
+9. Make a function that can mint more tokens to the owner.Adding more functionality
 10. Firstly, make your payment record mapping public so that view calls can be made to read the contract’s data.
 11. For the payments record mapping, create a function that takes the sender’s address, the receiver’s address and amount as an input, then creates a new payment record when a transfer is made and adds the new record to the user’s payment record.
 12. Recompile and redeploy your contract. Try minting tokens to the owner, and play around with sending tokens from the owner to A, A to B etc. Have a look at the payments record to see how the transaction is recorded in the contract’s storage.
