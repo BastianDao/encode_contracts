@@ -1,7 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Container, Row, Col } from 'react-bootstrap';
-import $ from 'jquery';
-
 import { storeString, retrieveString, storeFile, getFile } from './ipfsMethods';
 
 const IPFSInputs = () => {
@@ -9,24 +7,19 @@ const IPFSInputs = () => {
   const [cid, setCid] = useState('');
   const [file, setFile] = useState('');
   const [fileCid, setFileCid] = useState('');
+  const [image, setImage] = useState(null);
 
   const submitString = () => {
     storeString(string);
   }
+
   const submitFile = () => {
-    storeFile(file);
+    storeFile(file, setImage);
   }
 
   const getString = () => {
     retrieveString(cid);
   }
-
-  useEffect(() => {
-    console.log(file, 'file in useffect')
-    if (file !== '') {
-      $('#ipfs-image').attr('src', `data:image/png;base64, 8 ${file}`);
-    }
-  }, [setFile]);
 
   return (
     <Container>
@@ -78,13 +71,13 @@ const IPFSInputs = () => {
             value={fileCid}
             onChange={(event) => setFileCid(event.target.value)}
           />
-          <button onClick={() => getFile(fileCid, setFile)}>Submit String CID</button>
+          <button onClick={() => getFile(fileCid, setImage)}>Submit String CID</button>
         </Col>
       </Row>
       <Row>
         <Col>
-          { fileCid &&
-            <img src={file} alt="nothing"/>
+          { image &&
+            <img src={image} alt="nothing"/>
           }
         </Col>
       </Row>

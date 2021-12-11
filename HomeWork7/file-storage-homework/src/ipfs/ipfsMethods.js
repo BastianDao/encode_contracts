@@ -2,12 +2,12 @@
 import * as IPFS from 'ipfs-core'
 import all from 'it-all';
 
-const Buffer = require('buffer/').Buffer
 
 let node;
 async function init() {
   node = await IPFS.create();
 }
+init();
 
 const storeString = async (string) => {
   // Set some data to a variable
@@ -22,61 +22,33 @@ const storeString = async (string) => {
 
 const retrieveString = async (_cid) => {
   // Store CID in a variable
-  const cid = _cid //'QmPChd2hVbrJ6bfo3WBcTW4iZnpHm8TEzWkLHmLpXhF68A';
-  // QmWdWT5D15ZC7vVJA4qkJHS35K3GdxLMBe4mgiikzZPmXu pengu
+  const cid = _cid
+  // QmdpsbjAF2Y1T43AQUrYmutfGCKZqUvqgJGYxhMWDGWb86 bern
 
-  // Retrieve data from CID
-  const data = Buffer.concat(await all(node.cat(cid)));
-
-  // return data
-  return data.toString();
+  const chunks = await all(node.cat(cid));
+  const response = chunks.reduce((data, byte) => data + new TextDecoder("utf-8").decode(byte), '')
+  return response;
 };
 
-const storeFile = async (file) => {
-  let reader = new FileReader()
-  reader.readAsArrayBuffer(file)  
-  reader.onloadend = () => _saveToIpfs(reader)
-
+// onFileUpload
+const storeFile = (file, setImage) => {
+  let reader = new FileReader();
+  reader.readAsDataURL(file);
+  reader.onload = async () => {
+    const cid = await storeString(reader.result);
+    
+    setImage(reader.result, cid);
+  };
+  reader.onerror = (error) => {
+      console.log('Error: ', error);
+  };
 }
 
-const getFile = async (_cid, setFile) => {
-  let data;
-  try {
-    // Retrieve data from CID
-    data = Buffer.concat(await all(node.cat(_cid)));
-  } catch (e) {
-    console.log(e, 'e')
-  }
-
-  setFile(`data:image/png;base64, 8 ${toBase64(data)}`)
+const getFile = async (_cid, setImage) => {
+  const cid = _cid
+  const image = await retrieveString(cid);
+  console.log(image, 'image')
+  setImage(image)
 }
-
-// const getFile = async (_cid, setFile) => {
-//   let data;
-//   // Retrieve data from CID
-//   const cid = await all(node.cat(_cid));
-//   console.log(cid, 'cid')
-//   // try {
-//     data = Buffer.concat(cid);
-//   // } catch (e) {
-//     // console.log(e, 'e')
-//   // }
-
-//   setFile(`data:image/png;base64, 8 ${toBase64(data)}`)
-// }
-
-const toBase64 = (arr) => {
-  const array = new Uint8Array(arr);
-  return btoa(array.reduce((data, byte) => data + String.fromCharCode(byte), ''));
-
-}
-
-const _saveToIpfs = async (reader) => {
-  const buffer = Buffer.from(reader.result)
-  const cid = await node.add(buffer)
-  console.log(cid.path, 'cid')
-}
-
-init();
 
 export { storeString, retrieveString, storeFile, getFile };
