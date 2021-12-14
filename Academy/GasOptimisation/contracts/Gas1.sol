@@ -3,27 +3,24 @@ pragma solidity 0.8.0;
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract Constants {
-    uint public tradeFlag = 1;
-    uint public basicFlag = 0;
-    uint public dividendFlag = 1;
+    uint tradeFlag = 1;
+    uint dividendFlag = 1;
 }
 
 
 contract GasContract is Ownable, Constants{
 
     uint public totalSupply; // cannot be updated
-    uint public paymentCounter;
-    uint public tradePercent = 12;
-    address public contractOwner;
-    uint public tradeMode;
+    uint paymentCounter;
+    uint tradePercent = 12;
+
     address [5] public administrators;
     enum PaymentType { Unknown, BasicPayment, Refund, Dividend, GroupPayment }
     PaymentType constant defaultPayment = PaymentType.Unknown;
 
-    mapping(address => uint256) public balances;
-    mapping(address => Payment[]) public payments;
-    History[] public paymentHistory; // when a payment was updated   
-
+    mapping(address => uint256) balances;
+    mapping(address => Payment[]) payments;
+    History[] paymentHistory; // when a payment was updated   
 
     struct Payment {
       uint paymentID;
@@ -36,20 +33,20 @@ contract GasContract is Ownable, Constants{
     }
 
     struct History {
-      uint256 lastUpdate;
-      address updatedBy;
-      uint256 blockNumber;  
+        uint256 lastUpdate;
+        uint256 blockNumber;
+        address updatedBy;  
     }
 
     modifier onlyAdminOrOwner {
-        
-       if(checkForAdmin(msg.sender) ) {
-        require (checkForAdmin(msg.sender), "Gas Contract Only Admin Check-  Caller not admin" );
-        _;
-        } else if (msg.sender==contractOwner){
+        bool isAdmin = checkForAdmin(msg.sender);
+        if(isAdmin) {
+            require (isAdmin, "Gas Contract Only Admin Check-  Caller not admin" );
+            _;
+        } else if (msg.sender==owner()){
             _;
         } else {
-            revert("Error in Gas contract - onlyAdminOrOwner modifier : revert happened because the originator of the transaction was not the admin, and furthermore he wasn't the owner of the contract, so he cannot run this function"   );
+            revert("Error in Gas contract - onlyAdminOrOwner modifier : revert happened because the originator of the transaction was not the admin, and furthermore he wasn't the owner of the contract, so he cannot run this function");
         }
     }
 
@@ -59,99 +56,79 @@ contract GasContract is Ownable, Constants{
 
 
    constructor(address[] memory _admins, uint256 _totalSupply) {
-      contractOwner  = msg.sender;
-      totalSupply = _totalSupply;
-      
-        for (uint256 ii = 0;ii<administrators.length ;ii++){
-            if(_admins[ii] != address(0)){ 
+        totalSupply = _totalSupply;
+    
+        for (uint256 ii = 0;ii<administrators.length;ii++){
+            if(_admins[ii] != address(0)){
                 administrators[ii] = _admins[ii];
                 if(_admins[ii]==msg.sender){
-                    balances[msg.sender] = totalSupply;
+                    balances[msg.sender] = _totalSupply;
                 }
                 else {
                     balances[_admins[ii]] = 0;
                 }
-                if(_admins[ii]==msg.sender){
-                    emit supplyChanged(_admins[ii] ,totalSupply );
-                }
-                else if (_admins[ii]!=msg.sender) {
-                    emit supplyChanged(_admins[ii] ,0 );
-                }
-            } 
-        }    
+                
+                emit supplyChanged(_admins[ii], balances[_admins[ii]]); 
+            }
+        }   
    }
-   
-    function getPaymentHistory()public returns(History[] memory paymentHistory_) {
-        return paymentHistory;
-    }
 
    function checkForAdmin(address _user) public view returns (bool admin_) {
-       bool admin = false;
-       for (uint256 ii = 0; ii< administrators.length;ii++ ){
-          if(administrators[ii] ==_user){
-              admin = true;
+       for (uint256 ii = 0; ii< administrators.length;ii++){
+          if(administrators[ii] == _user){
+              return true;
+          } else{
+              return false;
           }
        }
-       return admin;
    }
    
-function balanceOf(address _user) public view returns (uint balance_){
-    uint balance = balances[_user];
-    return balance; 
-}
+    function balanceOf(address _user) public view returns (uint balance_){
+        return  balances[_user];
+    }
  
 
-     function getTradingMode() public view returns (bool mode_){
-         bool mode = false;
+    function getTradingMode() public view returns (bool mode_){
          if (tradeFlag == 1 || dividendFlag ==1) {
-             mode = true;
+             return true;
          } else{
-             mode = false;
+             return false;
          }
-         return mode;
      }
 
-    function addHistory(address _updateAddress, bool _tradeMode) public returns(bool status_, bool tradeMode_) {
+    function addHistory(address _updateAddress) private {
         History memory history;
         history.blockNumber = block.number;
         history.lastUpdate = block.timestamp;
         history.updatedBy = _updateAddress;
         paymentHistory.push(history);
-        bool[] memory status = new bool[](tradePercent);
-        for(uint i = 0; i < tradePercent; i++){
-          status[i] = true;
-        }
-        return ((status[0]==true), _tradeMode);
     }
 
    function getPayments(address _user) public view returns (Payment[] memory payments_) {
-      require(_user != address(0) ,"Gas Contract - getPayments function - User must have a valid non zero address");
-       return payments[_user];
+        require(_user != address(0) ,"Gas Contract - getPayments function - User must have a valid non zero address");
+        return payments[_user];
    }
 
-      function transfer(address _recipient, uint _amount, string calldata _name) public returns (bool status_) {
-      require(balances[msg.sender] >= _amount,"Gas Contract - Transfer function - Sender has insufficient Balance");
-      require(bytes(_name).length < 9,"Gas Contract - Transfer function -  The recipient name is too long, there is a max length of 8 characters");
-      balances[msg.sender] -= _amount;
-      balances[_recipient] += _amount;
-      emit Transfer(_recipient, _amount);
-      Payment memory payment;
-      payment.admin = address(0);   
-      payment.adminUpdated = false;
-      payment.paymentType = PaymentType.BasicPayment;
-      payment.recipient = _recipient;
-      payment.amount = _amount;
-      payment.recipientName = _name;
-      payment.paymentID = ++paymentCounter;
-      payments[msg.sender].push(payment);
-      bool[] memory status = new bool[](tradePercent);
-      for(uint i = 0; i < tradePercent; i++){
-          status[i] = true;
-      }
-    return (status[0]==true);
+    function transfer(address _recipient, uint _amount, string calldata _name) public returns (bool status_) {
+        require(balances[msg.sender] >= _amount,"Gas Contract - Transfer function - Sender has insufficient Balance");
+        require(bytes(_name).length < 9,"Gas Contract - Transfer function -  The recipient name is too long, there is a max length of 8 characters");
+        balances[msg.sender] -= _amount;
+        balances[_recipient] += _amount;
+        emit Transfer(_recipient, _amount);
+        Payment memory payment;
+        payment.admin = address(0);   
+        payment.adminUpdated = false;
+        payment.paymentType = PaymentType.BasicPayment;
+        payment.recipient = _recipient;
+        payment.amount = _amount;
+        payment.recipientName = _name;
+        payment.paymentID = ++paymentCounter;
+        payments[msg.sender].push(payment);
+        
+        return true;
    }
 
-       function updatePayment(address _user, uint _ID, uint _amount,PaymentType _type ) public onlyAdminOrOwner {
+    function updatePayment(address _user, uint _ID, uint _amount,PaymentType _type ) public onlyAdminOrOwner {
         require(_ID > 0,"Gas Contract - Update Payment function - ID must be greater than 0");
         require(_amount > 0,"Gas Contract - Update Payment function - Amount must be greater than 0");
         require(_user != address(0) ,"Gas Contract - Update Payment function - Administrator must have a valid non zero address");
@@ -162,11 +139,10 @@ function balanceOf(address _user) public view returns (uint balance_){
                payments[_user][ii].admin = _user;
                payments[_user][ii].paymentType = _type;
                payments[_user][ii].amount = _amount;
-               bool tradingMode = getTradingMode();
-               addHistory(_user, tradingMode);
+               addHistory(_user);
                emit PaymentUpdated(msg.sender, _ID, _amount,payments[_user][ii].recipientName);
+               break;
             }
         }
     }
-
 }
