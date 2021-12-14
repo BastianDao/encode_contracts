@@ -3,8 +3,8 @@ pragma solidity 0.8.0;
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract Constants {
-    uint tradeFlag = 1;
-    uint dividendFlag = 1;
+    bool tradeFlag = true;
+    bool dividendFlag = true;
 }
 
 
@@ -39,15 +39,8 @@ contract GasContract is Ownable, Constants{
     }
 
     modifier onlyAdminOrOwner {
-        bool isAdmin = checkForAdmin(msg.sender);
-        if(isAdmin) {
-            require (isAdmin, "Gas Contract Only Admin Check-  Caller not admin" );
-            _;
-        } else if (msg.sender==owner()){
-            _;
-        } else {
-            revert("Error in Gas contract - onlyAdminOrOwner modifier : revert happened because the originator of the transaction was not the admin, and furthermore he wasn't the owner of the contract, so he cannot run this function");
-        }
+        require(msg.sender == owner() || checkForAdmin(msg.sender), "Error in Gas contract - onlyAdminOrOwner modifier");
+        _;
     }
 
     event supplyChanged(address indexed, uint256 indexed);
@@ -89,7 +82,7 @@ contract GasContract is Ownable, Constants{
  
 
     function getTradingMode() public view returns (bool mode_){
-         if (tradeFlag == 1 || dividendFlag ==1) {
+         if (tradeFlag || dividendFlag) {
              return true;
          } else{
              return false;
