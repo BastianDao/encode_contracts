@@ -21,6 +21,12 @@ module.exports = {
     compilers: [
       {
         version: "0.8.0",
+        settings: {
+          optimizer: {
+            runs: 200,
+            enabled: true
+          }
+        }
       }
     ]
   },
