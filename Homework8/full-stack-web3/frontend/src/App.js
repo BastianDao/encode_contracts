@@ -3,6 +3,9 @@ import React from "react";
 // We'll use ethers to interact with the Ethereum network and our contract
 import { ethers } from "ethers";
 
+import * as IPFS from 'ipfs-core'
+import all from 'it-all';
+
 // We import the contract's artifacts and address here, as we are going to be
 // using them with ethers
 import VolcanoNFT from "./contracts/VolcanoNFT.json";
@@ -20,9 +23,11 @@ import { WaitingForTransactionMessage } from "./components/WaitingForTransaction
 import { NoTokensMessage } from "./components/NoTokensMessage";
 
 import 'bootstrap/dist/css/bootstrap.min.css';
-import IPFSInputs from './ipfs/ipfsInputComponents';
 
 import './App.css';
+
+let node = undefined;
+
 // This is the Hardhat Network id, you might change it in the hardhat.config.js
 // Here's a list of network ids https://docs.metamask.io/guide/ethereum-provider.html#properties
 // to use when deploying to other networks.
@@ -57,9 +62,19 @@ export class App extends React.Component {
       txBeingSent: undefined,
       transactionError: undefined,
       networkError: undefined,
+      file: undefined,
+      cid: undefined,
+      image: undefined
     };
 
     this.state = this.initialState;
+
+    if (node === undefined) {
+      async function init() {
+        node = await IPFS.create({repo: 'ok'+ Math.random()});
+      }
+      init();
+    }
   }
 
   render() {
@@ -91,6 +106,7 @@ export class App extends React.Component {
     if (!this.state.tokenData || !this.state.balance) {
       return <Loading />;
     }
+    console.log(this.state.tokenData, 'tokenData')
 
     // If everything is loaded, we render the application.
     return (
@@ -154,18 +170,54 @@ export class App extends React.Component {
             {this.state.balance.gt(0) && (
               <Transfer
                 transferTokens={(to, amount) =>
-                  this._transferTokens(to, amount)
+                  this._transferTokens(to)
                 }
                 tokenSymbol={this.state.tokenData.symbol}
               />
             )}
             <div className="row">
               <div className="col-12">
-                  <button onClick={() => this._asyncMintToken()}>Mint Token</button>
+                  {this.state.cid && this.state.file && <button onClick={() => this._asyncMintToken()}>Mint Token</button>}
               </div>
             </div>
 
-            <IPFSInputs />
+            <div className="row">
+              <div className="col-12">
+                <label htmlFor="fileInput">Upload File</label>
+                <input
+                  type="file"
+                  name="fileInput"
+                  onChange={(event) => this._setFile(event.target.files[0])}
+                />
+                <button onClick={() => this._storeFile(this.state.file)}>Submit File</button>
+              </div>
+
+              <br />
+              <br />
+              <div id="ipfs-image"></div>
+            </div>
+              
+            <div className="row">
+              <div className="col-12">
+                <label htmlFor="cidFileInput">Submit File CID</label>
+                <input
+                  type="text"
+                  name="cidFileInput"
+                  value={this.state.cid}
+                  onChange={(event) => this._setCid(event.target.value)}
+                />
+                <button onClick={() => this._retrieveFile(this.state.cid)}>Submit String CID</button>
+              </div>
+            </div>
+
+            <div className="row">
+              <div className="col-12">
+                { this.state.image &&
+                  <img src={this.state.image} alt="nothing"/>
+                }
+              </div>
+            </div>
+
           </div>
         </div>
       </div>
@@ -269,14 +321,16 @@ export class App extends React.Component {
   // The next two methods just read from the contract and store the results
   // in the component state.
   async _getTokenData() {
+    const token = this._token
     const name = await this._token.name();
     const symbol = await this._token.symbol();
-    console.log(this._token)
+
     this.setState({ tokenData: { name, symbol } });
   }
 
   async _asyncMintToken() {
-    const mintedToken = await this._token.mintToken(this.state.selectedAddress, "abc.com");
+    console.log(this.state.cid, "cid")
+    const mintedToken = await this._token.mintToken(this.state.selectedAddress, this.state.cid);
 
     console.log(mintedToken, 'mintedTOken')
   }
@@ -311,7 +365,7 @@ export class App extends React.Component {
 
       // We send the transaction, and save its hash in the Dapp's state. This
       // way we can indicate that we are waiting for it to be mined.
-      const tx = await this._token.transfer(to, amount);
+      const tx = await this._token.safeTransferFrom(this.state.selectedAddress, to, amount);
       this.setState({ txBeingSent: tx.hash });
 
       // We use .wait() to wait for the transaction to be mined. This method
@@ -382,5 +436,51 @@ export class App extends React.Component {
     });
 
     return false;
+  }
+
+  _setFile(_file) {
+    this.setState({ file: _file });
+  }
+
+  _setCid(_cid) {
+    this.setState({ cid: _cid });
+  }
+
+  async _retrieveFile(_cid) {
+    // Store CID in a variable
+    const cid = _cid
+    // QmdpsbjAF2Y1T43AQUrYmutfGCKZqUvqgJGYxhMWDGWb86 bern
+  
+    const chunks = await all(node.cat(cid));
+    const image = chunks.reduce((data, byte) => data + new TextDecoder("utf-8").decode(byte), '')
+    this.setState({ image: image })
+  };
+
+  async _storeString(string) {
+    // Set some data to a variable
+    const data = string;
+  
+    // Submit data to the network
+    const cid = await node.add(data);
+  
+    // Log CID to console
+    this.setState({ cid: cid })
+    console.log(cid.path);
+  };
+
+  _storeFile(file) {
+    let reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = async () => {
+      const cid = await this._storeString(reader.result);
+      
+      this.setState({ image: reader.result, cid }, function() {
+        console.log(this.state.image, "image")
+      })
+      // setImage(reader.result, cid);
+    };
+    reader.onerror = (error) => {
+        console.log('Error: ', error);
+    };
   }
 }
