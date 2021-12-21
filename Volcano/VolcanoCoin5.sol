@@ -9,6 +9,7 @@ contract VolcanoCoin is ERC20, Ownable {
         _mint(owner(), initialSupply);
         administrator = msg.sender;
     }
+    uint public constant version = 1;
 
     address administrator;
 
@@ -18,9 +19,10 @@ contract VolcanoCoin is ERC20, Ownable {
     uint private paymentCounter;
     enum PaymentType { Unknown, BasicPayment, Refund, Dividend, GroupPayment }
     PaymentType constant defaultPayment = PaymentType.Unknown;
+    uint private paymentTypesCount = 4;
 
     struct Payment {
-        uint paymentID;
+        uint paymentId;
         uint256 timestamp;
         uint256 amount;
         address sender;
@@ -54,7 +56,7 @@ contract VolcanoCoin is ERC20, Ownable {
     }
 
     function recordPayment(address _recipient, uint256 _amount) internal {
-        userPayments[msg.sender].push(Payment(++paymentCounter, _amount, _recipient, defaultPayment, "", block.timestamp));
+        userPayments[msg.sender].push(Payment(++paymentCounter, block.timestamp, _amount, msg.sender, _recipient, "", defaultPayment));
     }
 
     function viewPayments() public view returns(Payment[] memory payments){
@@ -62,16 +64,16 @@ contract VolcanoCoin is ERC20, Ownable {
     }
 
     function searchPayments(address _payer, uint256 _paymentId, uint _paymentType) private view returns (Payment[] storage, Payment memory, uint) {
-        require(_paymentType <= paymentTypeEnumCount, "PaymentType does not exist");
+        require(_paymentType <= paymentTypesCount, "PaymentType does not exist");
         
-        Payment[] storage userPayments = payments[_payer];
-        require(userPayments.length > 0, "user has made no payments");
+        Payment[] storage paymentsFromAddress = userPayments[_payer];
+        require(paymentsFromAddress.length > 0, "user has made no payments");
 
         Payment memory returnPayment;
         uint index;
 
-        for (uint i=0; i< userPayments.length; i++) {
-            Payment memory payment = userPayments[i];
+        for (uint i=0; i< paymentsFromAddress.length; i++) {
+            Payment memory payment = paymentsFromAddress[i];
 
             if (_paymentId == payment.paymentId) {
                 index = i;
@@ -82,27 +84,27 @@ contract VolcanoCoin is ERC20, Ownable {
 
         require(returnPayment.paymentId != 0, "Could not find payment");
 
-        return (userPayments, returnPayment, index);
+        return (paymentsFromAddress, returnPayment, index);
     }
 
     function updatePayment(uint256 _paymentId, uint _paymentType, string memory _comment) public {
-        (Payment[] storage userPayments, Payment memory payment, uint i) = searchPayments(_payer, _paymentId, _paymentType);(msg.sender, _paymentId, _paymentType);
+        (Payment[] storage paymentsFromAddress, Payment memory payment, uint i) = searchPayments(msg.sender, _paymentId, _paymentType);(msg.sender, _paymentId, _paymentType);
         
         payment.paymentType = PaymentType(_paymentType);
         payment.comment = bytes(payment.comment).length == 0 ? _comment : string(abi.encode(payment.comment, "; ", _comment));
-        userPayments[i] = payment;
+        paymentsFromAddress[i] = payment;
 
-        payments[msg.sender] = userPayments;
+        userPayments[msg.sender] = paymentsFromAddress;
     }
 
     function updatePaymentAdmin(address _payer, uint256 _paymentId, uint8 _paymentType) public {
         require(msg.sender == administrator, "Admin only action!");        
-        (Payment[] storage userPayments, Payment memory payment, uint i) = searchPayments(_payer, _paymentId, _paymentType);(_payer, _paymentId, _paymentType);        
+        (Payment[] storage paymentsFromAddress, Payment memory payment, uint i) = searchPayments(_payer, _paymentId, _paymentType);(_payer, _paymentId, _paymentType);        
 
         payment.paymentType = PaymentType(_paymentType);
         payment.comment = bytes(payment.comment).length == 0 ? string(abi.encode("updated by ", string(abi.encode(administrator)))) : string(abi.encodePacked(payment.comment, "; updated by ", string(abi.encodePacked(administrator))));
-        userPayments[i] = payment;
+        paymentsFromAddress[i] = payment;
 
-        payments[_payer] = userPayments;
+        userPayments[_payer] = paymentsFromAddress;
     }
-}
+} 
