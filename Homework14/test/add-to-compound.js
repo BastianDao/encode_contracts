@@ -4,9 +4,6 @@ const { network, ethers } = require("hardhat");
 const { solidity } = require("ethereum-waffle");
 use(solidity);
 
-const DAIAddress = "0x6B175474E89094C44Da98b954EedeAC495271d0F";
-const cDAIAddress = "0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643";
-
 describe("Add to Compound", function () {
   let owner;
   let DAI_TokenContract;
@@ -25,28 +22,38 @@ describe("Add to Compound", function () {
     //   params: ["0x503828976D22510aad0201ac7EC88293211D23Da"],
     // });
 
-    // const whale = await ethers.getSigner(
-    //   "0x503828976D22510aad0201ac7EC88293211D23Da"
-    // );
+    const whale = await ethers.getSigner(
+      "0x503828976D22510aad0201ac7EC88293211D23Da"
+    );
 
     const DAI = await CompoundInteraction_Instance.DAIAddress();
-    const cDAI = await CompoundInteraction_Instance.cDAIAddress();
+    const cDAI = await CompoundInteraction_Instance.CDAIAddress();
 
-    DAI_TokenContract = await ethers.getContractAt("Erc20", DAI);
-    cDAI_TokenContract = await ethers.getContractAt("CErc20", cDAI);
+    DAI_TokenContract = await ethers.getContractAt("ERC20", DAI);
+    cDAI_TokenContract = await ethers.getContractAt("ERC20", cDAI);
 
-    // await DAI_TokenContract.connect(whale).transfer(
-    //   owner.address,
-    //   ethers.utils.parseUnits(INITIAL_AMOUNT)
-    // );
+    await DAI_TokenContract.connect(whale).transfer(
+      owner.address,
+      ethers.utils.parseUnits(INITIAL_AMOUNT)
+    );
 
     
   });
 
-  it("Should mint tokens", async function () {
-    const mintedAmount = await CompoundInteraction_Instance.addToCompound(25000);
+  it("should sendDAI to contract", async () => {
+    await DAI_TokenContract.transfer(
+      CompoundInteraction_Instance.address,
+      ethers.utils.parseUnits(INITIAL_AMOUNT)
+    );
 
-    // const cDAIBalance = await cDAI_TokenContract.getBalance();
-    expect(mintedAmount).to.equal(25000)
+    const balance = await DAI_TokenContract.balanceOf(CompoundInteraction_Instance.address);
+
+    expect(balance).to.eql(ethers.utils.parseUnits(INITIAL_AMOUNT));
+  });
+
+  it("Should mint tokens", async function () {
+    const mintedAmount = await CompoundInteraction_Instance.addToCompound(ethers.utils.parseUnits(INITIAL_AMOUNT));
+    const balance = await cDAI_TokenContract.balanceOf(CompoundInteraction_Instance.address);
+    expect(balance).to.gt(1)
   });
 });
