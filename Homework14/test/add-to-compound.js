@@ -56,4 +56,9 @@ describe("Add to Compound", function () {
     const balance = await cDAI_TokenContract.balanceOf(CompoundInteraction_Instance.address);
     expect(balance).to.gt(1)
   });
+
+  it("ETH price should be greater than zero", async () => {
+    const price = await CompoundInteraction_Instance.getEthUsdPrice();
+    expect(price).to.gt(ethers.utils.parseUnits("0"));
+  });
 });
